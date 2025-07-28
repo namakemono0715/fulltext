@@ -1,4 +1,5 @@
 module fulltext
+module bleve-api-example
 
 go 1.24.5
 
