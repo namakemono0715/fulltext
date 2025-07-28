@@ -18,8 +18,8 @@ type Document struct {
 
 func IndexDocumentHandler(c *gin.Context) {
 	tenant_code := c.Param("tenant_code")
-	project_code := c.Param("project_code")
-	document_type := c.Param("document_type")
+	// project_code := c.Param("project_code")
+	// document_type := c.Param("document_type")
 	tenant := tenant_code
 	// tenant := tenant_code + "_" + project_code + "_" + document_type
 
