@@ -1,0 +1,3 @@
+http://fulltext.localhost:8081 {
+  reverse_proxy app:8080
+}
