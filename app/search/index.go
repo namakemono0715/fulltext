@@ -1,14 +1,16 @@
 package search
 
 import (
+	"fmt"
+	"path/filepath"
 	"sync"
-
 	"github.com/blevesearch/bleve/v2"
 )
 
 var (
 	indexes   = make(map[string]bleve.Index)
 	indexLock sync.Mutex
+	indexPath = "./indexes" // インデックスを保存するディレクトリ
 )
 
 // getOrCreateIndex returns an existing index for the tenant or creates a new one in memory
@@ -20,14 +22,24 @@ func getOrCreateIndex(tenant string) (bleve.Index, error) {
 		return idx, nil
 	}
 
-	mapping := bleve.NewIndexMapping()
-	newIndex, err := bleve.NewMemOnly(mapping)
+	// インデックスのパスを生成
+	indexFilePath := filepath.Join(indexPath, fmt.Sprintf("%s.bleve", tenant))
+
+	// 既存のインデックスを開くか、新規作成
+	var idx bleve.Index
+	var err error
+	if bleveIndexExists(indexFilePath) {
+			idx, err = bleve.Open(indexFilePath)
+	} else {
+			mapping := bleve.NewIndexMapping()
+			idx, err = bleve.New(indexFilePath, mapping)
+	}
 	if err != nil {
-		return nil, err
+			return nil, err
 	}
 
-	indexes[tenant] = newIndex
-	return newIndex, nil
+	indexes[tenant] = idx
+	return idx, nil
 }
 
 // IndexDocument adds a document to the tenant's index
@@ -49,4 +61,10 @@ func SearchDocuments(tenant, query string) (*bleve.SearchResult, error) {
 	q := bleve.NewQueryStringQuery(query)
 	req := bleve.NewSearchRequest(q)
 	return idx.Search(req)
+}
+
+// bleveIndexExists checks if a Bleve index exists at the given path
+func bleveIndexExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
