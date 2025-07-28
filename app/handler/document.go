@@ -18,16 +18,21 @@ type Document struct {
 
 func IndexDocumentHandler(c *gin.Context) {
 	tenant_code := c.Param("tenant_code")
-	// project_code := c.Param("project_code")
-	// document_type := c.Param("document_type")
+	project_code := c.Param("project_code")
+	document_type := c.Param("document_type")
 	tenant := tenant_code
-	// tenant := tenant_code + "_" + project_code + "_" + document_type
+	// tenant := tenant_code + "_" + project_code
 
 	var doc Document
 	if err := c.ShouldBindJSON(&doc); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Set values in the document
+	doc.TenantCode = tenant_code
+	doc.ProjectCode = project_code
+	doc.DocumentType = document_type
 
 	if err := search.IndexDocument(tenant, doc.ID, doc); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
