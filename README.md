@@ -1,6 +1,7 @@
 # Fulltext App – Docker Dev Template
 
-このプロジェクトは、Go（Gin）をベースにした Web アプリケーションの開発テンプレートです。  
+このプロジェクトは、Go（Gin）をベースにした 全文検索APIアプリケーションです。
+※最低限の機能しか実装されていません。  
 Docker と [Air](https://github.com/air-verse/air) を使って、ソースコードの変更を即時に反映できるホットリロード開発が可能です。
 
 ## 📦 構成技術
