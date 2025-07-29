@@ -2,7 +2,6 @@ package search
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -15,7 +14,7 @@ var (
 	indexPath = "./indexes" // インデックスを保存するディレクトリ
 )
 
-// getOrCreateIndex returns an existing index for the tenant or creates a new one in memory
+// getOrCreateIndex テナント用の既存インデックスを返すか、新しいインデックスを作成する
 func getOrCreateIndex(tenant string) (bleve.Index, error) {
 	indexLock.Lock()
 	defer indexLock.Unlock()
@@ -31,53 +30,111 @@ func getOrCreateIndex(tenant string) (bleve.Index, error) {
 	var idx bleve.Index
 	var err error
 	if bleveIndexExists(indexFilePath) {
-			idx, err = bleve.Open(indexFilePath)
+		idx, err = bleve.Open(indexFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("既存インデックスの読み込みに失敗しました: %w", err)
+		}
 	} else {
-			mapping := bleve.NewIndexMapping()
-			idx, err = bleve.New(indexFilePath, mapping)
-	}
-	if err != nil {
-			return nil, err
+		mapping := bleve.NewIndexMapping()
+		idx, err = bleve.New(indexFilePath, mapping)
+		if err != nil {
+			return nil, fmt.Errorf("新規インデックスの作成に失敗しました: %w", err)
+		}
 	}
 
 	indexes[tenant] = idx
 	return idx, nil
 }
 
-// IndexDocument adds a document to the tenant's index
+// IndexDocument テナントのインデックスにドキュメントを追加する
 func IndexDocument(tenant, docID string, doc interface{}) error {
 	if docID == "" {
-		return fmt.Errorf("document ID cannot be empty??")
+		return fmt.Errorf("ドキュメントIDは空にできません")
 	}
+	if tenant == "" {
+		return fmt.Errorf("テナントは空にできません")
+	}
+	
 	idx, err := getOrCreateIndex(tenant)
 	if err != nil {
-		return err
+		return fmt.Errorf("インデックスの取得に失敗しました: %w", err)
 	}
-	return idx.Index(docID, doc)
+	
+	if err := idx.Index(docID, doc); err != nil {
+		return fmt.Errorf("ドキュメントのインデックス化に失敗しました: %w", err)
+	}
+	
+	return nil
 }
 
-// SearchDocuments runs a simple query against the tenant's index
+// SearchDocuments テナントのインデックスに対してクエリを実行し、検索結果を返す
 func SearchDocuments(tenant, query string) (*bleve.SearchResult, error) {
+	if tenant == "" {
+		return nil, fmt.Errorf("テナントは空にできません")
+	}
+	if query == "" {
+		return nil, fmt.Errorf("検索クエリは空にできません")
+	}
 	
 	idx, err := getOrCreateIndex(tenant)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("インデックスの取得に失敗しました: %w", err)
 	}
 
-	count, err := idx.DocCount()
-	if err != nil {
-		log.Printf("DocCount error: %v", err)
-		return nil, err // または return 0, err
-	}
-	log.Printf("Total documents in index: %d", count)
-	
+	// クエリを作成して検索を実行
 	q := bleve.NewQueryStringQuery(query)
 	req := bleve.NewSearchRequest(q)
-	return idx.Search(req)
+	
+	result, err := idx.Search(req)
+	if err != nil {
+		return nil, fmt.Errorf("検索の実行に失敗しました: %w", err)
+	}
+	
+	return result, nil
 }
 
-// bleveIndexExists checks if a Bleve index exists at the given path
+// 指定されたパスにBleveインデックスが存在するかチェックする
 func bleveIndexExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// CloseIndex 指定されたテナントのインデックスを閉じる
+func CloseIndex(tenant string) error {
+	indexLock.Lock()
+	defer indexLock.Unlock()
+
+	idx, exists := indexes[tenant]
+	if !exists {
+		return fmt.Errorf("テナント '%s' のインデックスが見つかりません", tenant)
+	}
+
+	if err := idx.Close(); err != nil {
+		return fmt.Errorf("インデックスのクローズに失敗しました: %w", err)
+	}
+
+	delete(indexes, tenant)
+	return nil
+}
+
+// CloseAllIndexes すべてのインデックスを閉じる
+func CloseAllIndexes() error {
+	indexLock.Lock()
+	defer indexLock.Unlock()
+
+	var errors []string
+	for tenant, idx := range indexes {
+		if err := idx.Close(); err != nil {
+			errors = append(errors, fmt.Sprintf("テナント '%s': %v", tenant, err))
+		}
+	}
+
+	// マップをクリア
+	indexes = make(map[string]bleve.Index)
+
+	if len(errors) > 0 {
+		return fmt.Errorf("一部のインデックスのクローズに失敗しました: %v", errors)
+	}
+
+	return nil
 }

@@ -6,6 +6,7 @@
 *.dylib
 server
 app/server
+*/server
 
 # Test binary, built with `go test -c`
 *.test
@@ -19,6 +20,7 @@ go.work
 # Temporary files
 tmp/
 app/tmp/
+*/tmp/
 *.tmp
 *.log
 

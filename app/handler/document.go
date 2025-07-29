@@ -3,11 +3,13 @@ package handler
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"fulltext/search"
 )
 
+// Document 検索対象のドキュメント構造体
 type Document struct {
 	ID           string `json:"id"`
 	ProjectCode  string `json:"project_code"`
@@ -17,48 +19,98 @@ type Document struct {
 	Body         string `json:"body"`
 }
 
+// IndexDocumentHandler ドキュメントをインデックスに追加するハンドラー
 func IndexDocumentHandler(c *gin.Context) {
-	log.Println("=== IndexDocumentHandler reached ===")
-	tenant_code := c.Param("tenant_code")
-	project_code := c.Param("project_code")
-	document_type := c.Param("document_type")
-	tenant := tenant_code
-	// tenant := tenant_code + "_" + project_code
+	log.Println("=== ドキュメントインデックス処理開始 ===")
+	
+	// URLパラメータから値を取得
+	tenantCode := c.Param("tenant_code")
+	projectCode := c.Param("project_code")
+	documentType := c.Param("document_type")
+	
+	// バリデーション
+	if tenantCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "テナントコードが必要です"})
+		return
+	}
+	if projectCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "プロジェクトコードが必要です"})
+		return
+	}
+	if documentType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ドキュメントタイプが必要です"})
+		return
+	}
 
 	var doc Document
-
 	if err := c.ShouldBindJSON(&doc); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.Printf("JSONバインドエラー: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "不正なJSONフォーマット: " + err.Error()})
 		return
 	}
 
-	// Set values in the document
-	doc.ID = tenant_code + ":" + project_code + ":" + document_type + ":" + doc.ID
-	doc.TenantCode = tenant_code
-	doc.ProjectCode = project_code
-	doc.DocumentType = document_type
-
-	log.Printf("=== Indexing Handler START ===")
-	log.Printf("doc.ID: %s, Title: %s, Body: %s", doc.ID, doc.Title, doc.Body)
-
-	if err := search.IndexDocument(tenant, doc.ID, doc); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// ドキュメントのバリデーション
+	if strings.TrimSpace(doc.ID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ドキュメントIDが必要です"})
+		return
+	}
+	if strings.TrimSpace(doc.Title) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "タイトルが必要です"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "indexed"})
+	// ドキュメントの値を設定
+	doc.ID = tenantCode + ":" + projectCode + ":" + documentType + ":" + doc.ID
+	doc.TenantCode = tenantCode
+	doc.ProjectCode = projectCode
+	doc.DocumentType = documentType
+
+	log.Printf("インデックス処理開始 - ID: %s, タイトル: %s", doc.ID, doc.Title)
+
+	if err := search.IndexDocument(tenantCode, doc.ID, doc); err != nil {
+		log.Printf("インデックス処理エラー: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "インデックス処理に失敗しました: " + err.Error()})
+		return
+	}
+
+	log.Printf("インデックス処理完了 - ID: %s", doc.ID)
+	c.JSON(http.StatusOK, gin.H{
+		"status":      "indexed",
+		"document_id": doc.ID,
+		"tenant":      tenantCode,
+	})
 }
 
+// SearchDocumentsHandler ドキュメントを検索するハンドラー
 func SearchDocumentsHandler(c *gin.Context) {
-	tenant_code := c.Param("tenant_code")
-	tenant := tenant_code
+	log.Println("=== ドキュメント検索処理開始 ===")
+	
+	tenantCode := c.Param("tenant_code")
 	query := c.Query("q")
 
-	results, err := search.SearchDocuments(tenant, query)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// バリデーション
+	if tenantCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "テナントコードが必要です"})
+		return
+	}
+	if strings.TrimSpace(query) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "検索クエリが必要です"})
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	log.Printf("検索処理開始 - テナント: %s, クエリ: %s", tenantCode, query)
+
+	results, err := search.SearchDocuments(tenantCode, query)
+	if err != nil {
+		log.Printf("検索処理エラー: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "検索処理に失敗しました: " + err.Error()})
+		return
+	}
+
+	log.Printf("検索処理完了 - ヒット数: %d", len(results.Hits))
+	c.JSON(http.StatusOK, gin.H{
+		"results": results,
+		"query":   query,
+		"tenant":  tenantCode,
+	})
 }
