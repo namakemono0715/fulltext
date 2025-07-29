@@ -2,6 +2,8 @@ package search
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"path/filepath"
 	"sync"
 	"github.com/blevesearch/bleve/v2"
@@ -44,6 +46,9 @@ func getOrCreateIndex(tenant string) (bleve.Index, error) {
 
 // IndexDocument adds a document to the tenant's index
 func IndexDocument(tenant, docID string, doc interface{}) error {
+	if docID == "" {
+		return fmt.Errorf("document ID cannot be empty??")
+	}
 	idx, err := getOrCreateIndex(tenant)
 	if err != nil {
 		return err
@@ -53,11 +58,19 @@ func IndexDocument(tenant, docID string, doc interface{}) error {
 
 // SearchDocuments runs a simple query against the tenant's index
 func SearchDocuments(tenant, query string) (*bleve.SearchResult, error) {
+	
 	idx, err := getOrCreateIndex(tenant)
 	if err != nil {
 		return nil, err
 	}
 
+	count, err := idx.DocCount()
+	if err != nil {
+		log.Printf("DocCount error: %v", err)
+		return nil, err // または return 0, err
+	}
+	log.Printf("Total documents in index: %d", count)
+	
 	q := bleve.NewQueryStringQuery(query)
 	req := bleve.NewSearchRequest(q)
 	return idx.Search(req)

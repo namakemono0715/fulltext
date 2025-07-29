@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"runtime/debug"
 
 	"fulltext/router"
@@ -12,6 +13,9 @@ import (
 // var index bleve.Index
 
 func main() {
+	log.SetOutput(os.Stdout)
+	log.Println("=== サーバーを起動します ===")
+	
 	defer func() {
     if r := recover(); r != nil {
       fmt.Println("Recovered from panic:", r)
