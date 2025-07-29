@@ -49,19 +49,145 @@ Docker と [Air](https://github.com/air-verse/air) を使って、ソースコ�
 
 ---
 
-## 📁 ディレクトリ構成（例）
+## 📋 API 仕様
+
+### 認証
+
+すべてのAPIエンドポイントには、環境変数 `API_KEY` で設定されたAPIキーによる認証が必要です。
+
+**Header**
+```
+Authorization: Bearer YOUR_API_KEY
+```
+
+### ベースURL
+
+```
+http://fulltext.local/{tenant_code}/{project_code}/{document_type}
+```
+
+**パラメータ説明**
+- `tenant_code`: テナント識別子
+- `project_code`: プロジェクト識別子  
+- `document_type`: ドキュメントタイプ
+
+### エンドポイント
+
+#### 1. ドキュメントのインデックス化
+
+**POST** `/{tenant_code}/{project_code}/{document_type}/documents`
+
+ドキュメントを検索インデックスに追加します。
+
+**リクエストボディ**
+```json
+{
+  "id": "document_001",
+  "title": "サンプルドキュメント",
+  "body": "これはサンプルのドキュメント本文です。"
+}
+```
+
+**レスポンス（成功）**
+```json
+{
+  "status": "indexed",
+  "document_id": "tenant1:project1:manual:document_001",
+  "tenant": "tenant1"
+}
+```
+
+**レスポンス（エラー）**
+```json
+{
+  "error": "ドキュメントIDが必要です"
+}
+```
+
+#### 2. ドキュメント検索
+
+**GET** `/{tenant_code}/{project_code}/{document_type}/search?q={query}`
+
+インデックス化されたドキュメントを検索します。
+
+**クエリパラメータ**
+- `q`: 検索クエリ文字列（必須）
+
+**レスポンス（成功）**
+```json
+{
+  "results": {
+    "hits": [
+      {
+        "id": "tenant1:project1:manual:document_001",
+        "score": 0.8,
+        "fields": {
+          "title": "サンプルドキュメント",
+          "body": "これはサンプルのドキュメント本文です。"
+        }
+      }
+    ],
+    "total_hits": 1,
+    "max_score": 0.8
+  },
+  "query": "サンプル",
+  "tenant": "tenant1"
+}
+```
+
+**レスポンス（エラー）**
+```json
+{
+  "error": "検索クエリが必要です"
+}
+```
+
+### 使用例
+
+#### ドキュメントの追加
+```bash
+curl -X POST \
+  http://fulltext.local/tenant1/project1/manual/documents \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "doc001",
+    "title": "ユーザーマニュアル",
+    "body": "このマニュアルはシステムの使用方法を説明します。"
+  }'
+```
+
+#### ドキュメントの検索
+```bash
+curl -X GET \
+  "http://fulltext.local/tenant1/project1/manual/search?q=ユーザー" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+---
+
+## 📁 ディレクトリ構成
 
 ```
 .
 ├── app/
-│   ├── main.go
-│   ├── handler/
-│   └── ...
-├── docker-compose.yml
-├── Dockerfile
-├── Caddyfile
-├── Makefile
-└── README.md
+│   ├── main.go              # メインアプリケーション
+│   ├── handler/             # HTTPハンドラー
+│   │   └── document.go      # ドキュメント関連API
+│   ├── router/              # ルーティング設定
+│   │   └── router.go        # API ルート定義
+│   ├── middleware/          # ミドルウェア
+│   │   └── auth.go          # 認証ミドルウェア
+│   ├── search/              # 検索エンジン
+│   │   └── index.go         # Bleve検索インデックス
+│   ├── indexes/             # 検索インデックスファイル（自動生成）
+│   └── tmp/                 # 一時ファイル
+├── indexes/                 # 検索インデックスファイル（自動生成）
+├── docker-compose.yml       # Docker構成
+├── Dockerfile              # Dockerイメージ定義
+├── Caddyfile               # リバースプロキシ設定
+├── Makefile                # 開発コマンド
+└── README.md               # このファイル
 ```
 
 ---
@@ -70,6 +196,27 @@ Docker と [Air](https://github.com/air-verse/air) を使って、ソースコ�
 
 - `Air` により `app/` 配下の `.go` ファイルを変更すると自動で再ビルド＆再起動されます。
 - 本番では `CMD ["./server"]` でビルド済みバイナリを起動する形に変更してください。
+- 検索インデックスは `indexes/` ディレクトリに自動生成されます（Gitで管理されません）。
+- API認証には環境変数 `API_KEY` を設定してください。
+- テナント毎に独立した検索インデックスが作成されます。
+
+---
+
+## 🔧 環境変数
+
+アプリケーションで使用する環境変数：
+
+| 変数名    | 説明                 | 必須 | デフォルト値 |
+|-----------|---------------------|------|-------------|
+| `API_KEY` | API認証キー          | ✅   | なし        |
+| `GIN_MODE`| Ginの動作モード      | ❌   | debug       |
+
+**設定例（docker-compose.yml）**
+```yaml
+environment:
+  - API_KEY=your-secret-api-key
+  - GIN_MODE=release
+```
 
 ---
 
