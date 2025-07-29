@@ -142,6 +142,42 @@ http://fulltext.local/{tenant_code}/{project_code}/{document_type}
 }
 ```
 
+#### 3. ファジー検索（タイポ対応）
+
+**GET** `/{tenant_code}/{project_code}/{document_type}/fuzzy-search?q={query}&fuzziness={level}`
+
+タイプミスに対応したファジー検索を実行します。
+
+**クエリパラメータ**
+- `q`: 検索クエリ文字列（必須）
+- `fuzziness`: あいまい度レベル 0-2（省略可、デフォルト: 1）
+  - `0`: 完全一致のみ
+  - `1`: 1文字の違いまで許可（推奨）
+  - `2`: 2文字の違いまで許可
+
+**レスポンス（成功）**
+```json
+{
+  "results": {
+    "hits": [
+      {
+        "id": "tenant1:project1:manual:document_001",
+        "score": 0.7,
+        "fields": {
+          "title": "サンプルドキュメント",
+          "body": "これはサンプルのドキュメント本文です。"
+        }
+      }
+    ],
+    "total_hits": 1,
+    "max_score": 0.7
+  },
+  "query": "サンプる",
+  "fuzziness": 1,
+  "tenant": "tenant1"
+}
+```
+
 ### 使用例
 
 #### ドキュメントの追加
@@ -161,6 +197,19 @@ curl -X POST \
 ```bash
 curl -X GET \
   "http://fulltext.local/tenant1/project1/manual/search?q=ユーザー" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+#### ファジー検索（タイポ対応）
+```bash
+# fuzziness=1（1文字違いまで許可）
+curl -X GET \
+  "http://fulltext.local/tenant1/project1/manual/fuzzy-search?q=ユーザ&fuzziness=1" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+
+# fuzziness=2（2文字違いまで許可）
+curl -X GET \
+  "http://fulltext.local/tenant1/project1/manual/fuzzy-search?q=ユザー&fuzziness=2" \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -199,6 +248,8 @@ curl -X GET \
 - 検索インデックスは `indexes/` ディレクトリに自動生成されます（Gitで管理されません）。
 - API認証には環境変数 `API_KEY` を設定してください。
 - テナント毎に独立した検索インデックスが作成されます。
+- **ファジー検索対応**: タイプミスに強い検索が可能です（fuzziness 0-2で調整可能）。
+- 通常検索は高速、ファジー検索はタイプミス対応で使い分けてください。
 
 ---
 

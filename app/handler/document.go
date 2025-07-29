@@ -3,6 +3,7 @@ package handler
 import (
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -112,5 +113,50 @@ func SearchDocumentsHandler(c *gin.Context) {
 		"results": results,
 		"query":   query,
 		"tenant":  tenantCode,
+	})
+}
+
+// FuzzySearchDocumentsHandler ファジー検索（タイポ対応）を実行するハンドラー
+func FuzzySearchDocumentsHandler(c *gin.Context) {
+	log.Println("=== ファジー検索処理開始 ===")
+	
+	tenantCode := c.Param("tenant_code")
+	query := c.Query("q")
+	fuzzinessStr := c.DefaultQuery("fuzziness", "1") // デフォルトは1
+
+	// バリデーション
+	if tenantCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "テナントコードが必要です"})
+		return
+	}
+	if strings.TrimSpace(query) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "検索クエリが必要です"})
+		return
+	}
+
+	// fuzzinessの変換とバリデーション
+	fuzziness := 1 // デフォルト値
+	if f, err := strconv.Atoi(fuzzinessStr); err == nil && f >= 0 && f <= 2 {
+		fuzziness = f
+	} else if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "fuzzinessは0-2の整数で指定してください"})
+		return
+	}
+
+	log.Printf("ファジー検索処理開始 - テナント: %s, クエリ: %s, fuzziness: %d", tenantCode, query, fuzziness)
+
+	results, err := search.FuzzySearchDocuments(tenantCode, query, fuzziness)
+	if err != nil {
+		log.Printf("ファジー検索処理エラー: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ファジー検索処理に失敗しました: " + err.Error()})
+		return
+	}
+
+	log.Printf("ファジー検索処理完了 - ヒット数: %d", len(results.Hits))
+	c.JSON(http.StatusOK, gin.H{
+		"results":   results,
+		"query":     query,
+		"fuzziness": fuzziness,
+		"tenant":    tenantCode,
 	})
 }

@@ -93,6 +93,36 @@ func SearchDocuments(tenant, query string) (*bleve.SearchResult, error) {
 	return result, nil
 }
 
+// FuzzySearchDocuments ファジー検索を実行する（タイポに対応）
+func FuzzySearchDocuments(tenant, query string, fuzziness int) (*bleve.SearchResult, error) {
+	if tenant == "" {
+		return nil, fmt.Errorf("テナントは空にできません")
+	}
+	if query == "" {
+		return nil, fmt.Errorf("検索クエリは空にできません")
+	}
+	if fuzziness < 0 || fuzziness > 2 {
+		return nil, fmt.Errorf("fuzzinessは0-2の範囲で指定してください")
+	}
+	
+	idx, err := getOrCreateIndex(tenant)
+	if err != nil {
+		return nil, fmt.Errorf("インデックスの取得に失敗しました: %w", err)
+	}
+
+	// ファジー検索クエリを作成
+	q := bleve.NewFuzzyQuery(query)
+	q.SetFuzziness(fuzziness)
+	req := bleve.NewSearchRequest(q)
+	
+	result, err := idx.Search(req)
+	if err != nil {
+		return nil, fmt.Errorf("ファジー検索の実行に失敗しました: %w", err)
+	}
+	
+	return result, nil
+}
+
 // 指定されたパスにBleveインデックスが存在するかチェックする
 func bleveIndexExists(path string) bool {
 	_, err := os.Stat(path)

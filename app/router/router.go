@@ -17,6 +17,7 @@ func SetupRouter() *gin.Engine {
 	{
 		secured.POST("/documents", handler.IndexDocumentHandler)
 		secured.GET("/search", handler.SearchDocumentsHandler)
+		secured.GET("/fuzzy-search", handler.FuzzySearchDocumentsHandler)
 	}
 
 	return r
