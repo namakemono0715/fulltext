@@ -20,7 +20,7 @@ Docker と [Air](https://github.com/air-verse/air) を使って、ソースコ�
 ### 1. ホストの `/etc/hosts` に追記
 
 ```bash
-127.0.0.1   fulltext.localhos
+127.0.0.1   fulltext.localhost
 ```
 
 > ※ `sudo vi /etc/hosts` 等で編集してください。
@@ -43,7 +43,7 @@ Docker と [Air](https://github.com/air-verse/air) を使って、ソースコ�
 
 ## 🌐 アクセス
 
-- アプリ： [http://fulltext.localhos](http://fulltext.localhos)
+- アプリ： [http://fulltext.localhost](http://fulltext.localhost)
 
 ※ Caddy がリバースプロキシしており、ポート番号不要でアクセスできます。  
 ※ 既に `puma-dev` などが `80` 番を使っている場合は、Caddy のポートを変更して `.local:8081` などにしてください。
@@ -64,7 +64,7 @@ Authorization: Bearer YOUR_API_KEY
 ### ベースURL
 
 ```
-http://fulltext.localhos/{tenant_code}/{project_code}/{document_type}
+http://fulltext.localhost/{tenant_code}/{project_code}/{document_type}
 ```
 
 **パラメータ説明**
@@ -184,7 +184,8 @@ http://fulltext.localhos/{tenant_code}/{project_code}/{document_type}
 #### ドキュメントの追加
 ```bash
 curl -X POST \
-  http://fulltext.localhos/tenant1/project1/manual/documents \
+  http://fulltext.localhost
+/tenant1/project1/manual/documents \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -197,7 +198,8 @@ curl -X POST \
 #### ドキュメントの検索
 ```bash
 curl -X GET \
-  "http://fulltext.localhos/tenant1/project1/manual/search?q=ユーザー" \
+  "http://fulltext.localhost
+/tenant1/project1/manual/search?q=ユーザー" \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -205,12 +207,14 @@ curl -X GET \
 ```bash
 # fuzziness=1（1文字違いまで許可）
 curl -X GET \
-  "http://fulltext.localhos/tenant1/project1/manual/fuzzy-search?q=ユーザ&fuzziness=1" \
+  "http://fulltext.localhost
+/tenant1/project1/manual/fuzzy-search?q=ユーザ&fuzziness=1" \
   -H "Authorization: Bearer YOUR_API_KEY"
 
 # fuzziness=2（2文字違いまで許可）
 curl -X GET \
-  "http://fulltext.localhos/tenant1/project1/manual/fuzzy-search?q=ユザー&fuzziness=2" \
+  "http://fulltext.localhost
+/tenant1/project1/manual/fuzzy-search?q=ユザー&fuzziness=2" \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
